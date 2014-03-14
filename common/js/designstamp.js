@@ -1,0 +1,10 @@
+document.write("<a id='wiapLogoLink' href=\"http://wiap.co\" target=\"_blank\"><img id=\"wiapDesignStamp\" src=\"http://wiap.co/assets/common/img/design_stamp.png\" /></a>");
+var stamp=document.getElementById('wiapDesignStamp');
+var style = stamp.style;
+style.position='fixed';
+style.bottom='1em';
+style.left='1em';
+style.width='2.5em';
+style.zIndex=99;
+var lnk=document.getElementById('wiapLogoLink');
+lnk.style.border=0;

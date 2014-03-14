@@ -1,0 +1,13 @@
+.splash-screen {
+    background: #000;
+    color: #fff;
+    opacity: 0.8;
+    filter: alpha(70);
+    display: none;
+    width: 200px;
+    position: fixed;
+    margin-left: 42%;
+    top: 20%;
+    padding: 20px;
+    font-size: 1em;
+}
