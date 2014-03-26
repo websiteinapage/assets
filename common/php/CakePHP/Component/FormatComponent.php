@@ -16,4 +16,3 @@ class FormatComponent extends Component {
     }
 }
 
-?>

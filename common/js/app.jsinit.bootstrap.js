@@ -21,6 +21,60 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 */
+var opts = {
+    lines: 8, // The number of lines to draw
+    length: 6, // The length of each line
+    width: 3, // The line thickness
+    radius: 6, // The radius of the inner circle
+    corners: 1, // Corner roundness (0..1)
+    rotate: 0, // The rotation offset
+    direction: 1, // 1: clockwise, -1: counterclockwise
+    color: '#ccc', // #rgb or #rrggbb
+    speed: 1, // Rounds per second
+    trail: 60, // Afterglow percentage
+    shadow: false, // Whether to render a shadow
+    hwaccel: false, // Whether to use hardware acceleration
+    className: 'spinner', // The CSS class to assign to the spinner
+    zIndex: 2e12, // The z-index (defaults to 2000000000)
+    top: 'auto', // Top position relative to parent in px
+    left: 'auto' // Left position relative to parent in px
+};
+var target = document.getElementById('progressHolder');
+var spinner = new Spinner(opts).spin(target); 
+var loadingAction, loadedAction;
+    
+$(document).ready(function() {
+    // AJAX Config
+    var splashFrame = "<div id=\"progressHolder\"></div>";
+    
+    $('body').prepend(splashFrame);
+    $('#progressHolder').position({
+        my: "center",
+        at: "center",
+        of: $(window)
+    });
+    
+    /** Set spinner target **/
+    spinner.stop();
+    
+    loadingAction = function() {
+        if(target) {
+            spinner.spin(target);
+        }
+    };
+
+    loadedAction = function() {
+        spinner.stop();
+    };
+
+});
+
+// add to jQuery Support
+jQuery.support.placeholder = (function(){
+    var i = document.createElement('input');
+    return 'placeholder' in i;
+})();
+
 WiapJSBootstrap = function() {
     if($('body').find('#DialogFrame').length<1) {
         var dlg = "<div id='DialogFrame' class='modal fade' tagindex='-1' role='dialog' aria-labelledby='myModalLabel' aria-hidden='true'>" + 
@@ -39,14 +93,71 @@ WiapJSBootstrap = function() {
         namespace: "WIAP_JSINIT", // app namespace - will prefix console outputs
         spreadClass: "spread", // class for spread styling - height of element will be set to height of window
         counterClass: "char-counter", // class for input fields with a maxlength to include a counter
-        dialogWidth: Math.min(500, $(window).width()*0.9)
+        dialogWidth: Math.min(500, $(window).width()*0.9),
+        toastCSS: {
+            maxWidth: $(window).width()*0.9
+        }
     };
     if(arguments[0]) {
         options = $.extend(options, arguments[0]);
     }  
-
+    
     var engine = {
         closeDialogCallback: function() {},
+        initCheckbox: function() {
+            $('.checkbox').each(function() {
+                var elem = $(this);
+                if(!elem.hasClass('bs-cb')) {
+                    var cb_id = engine.getDOMId("checkbox");
+                    var checkboxHTML = "<span id=\"" + cb_id + "\" class=\"cb bs-cb " + elem.attr('wrapperClass') + " " + ((elem.hasClass('disabled')||elem.attr("disabled"))?" disabled":"") + "\" >"+
+                        "<i class=\"glyphicon glyphicon-unchecked\"></i>"+
+                        "<i class=\"glyphicon glyphicon-check\"></i>" +
+                        "<input type=\"hidden\" name=\"" + elem.attr("name") + "\" class=\"cb-input " + elem.attr('class') + "\" />" + "</span>";
+                    elem.after(checkboxHTML);
+                    var checkbox = $('#'+cb_id);
+                    var input = checkbox.find('.cb-input');
+                    $.each(elem.data, function(index, value) {
+                        input.data(index, value);
+                    });
+                    elem.remove();
+                    if(checkbox.prop('checked')) {
+                        checkbox.find(".glyphicon-check").show();
+                        checkbox.find(".glyphicon-unchecked").hide();
+                        input.val(0);
+                    }
+                    else {
+                        checkbox.find(".glyphicon-check").hide();
+                        checkbox.find(".glyphicon-unchecked").show();
+                        input.val(0);
+                    }
+                    checkbox.on('click', function() {
+                        var checkbox = $(this);
+                        if(!checkbox.hasClass('disabled')) {
+                            var input = checkbox.find('.cb-input');
+                            if(checkbox.prop('checked')) {
+                                checkbox.prop('checked', false);
+                                checkbox.removeAttr('checked');
+                                checkbox.removeClass('checked');
+                                checkbox.find(".glyphicon-check").hide();
+                                checkbox.find(".glyphicon-unchecked").show();
+                                input.val(0);
+                            }
+                            else {
+                                checkbox.prop('checked', true);
+                                checkbox.attr('checked','checked');
+                                checkbox.addClass('checked');
+                                checkbox.find(".glyphicon-check").show();
+                                checkbox.find(".glyphicon-unchecked").hide();
+                                input.val(1);
+                            }
+                            engine.log(checkbox.prop('checked'), "Checked?");
+                            engine.log(checkbox);
+                        } 
+                    });
+                }
+            });
+
+        },
         initDialog: function() {
             var frame = $('body').find('#DialogFrame');
             // console.log(frame);
@@ -180,14 +291,6 @@ WiapJSBootstrap = function() {
             if(opts.dialogWidth) {
                 $('#DialogFrame').dialog("option", "width", opts.dialogWidth);
             }
-            /*
-            $('#DialogFrame').dialog("open");
-            $('#DialogContent').html(html);
-            if(buttons)
-                $('#DialogFrame').dialog("option", "buttons", buttons);
-            if(title)
-                $('#DialogFrame').dialog("option", "title", title);
-            */
             $('#DialogFrame').modal('show');
             if(title)
                 $('#DialogTitle').html(title);
@@ -222,7 +325,8 @@ WiapJSBootstrap = function() {
             return obj && typeof obj === "function";
         },
         closeDialog: function() {
-            $('#DialogFrame').dialog("close");
+            //$('#DialogFrame').dialog("close");
+            $('#DialogFrame').modal('hide');
             if(engine.isFxn(engine.closeDialogCallback)) {
                 engine.closeDialogCallback();
             }
@@ -270,9 +374,7 @@ WiapJSBootstrap = function() {
         showToast: function() {
             var html = arguments[0];
             var opts = {
-                css: {
-                    maxWidth: $(window).width()*0.9
-                },
+                css: options.toastCSS,
                 recycle: true,
                 position: null,
                 draggable: false,
@@ -351,7 +453,26 @@ WiapJSBootstrap = function() {
             $('.toast').fadeOut(250, function() {
                 $('.toast').remove();
             });
-        }
+        },
+        copyToClipboard: function(s) {
+            // ie
+            if (window.clipboardData && clipboardData.setData) {
+                clipboardData.setData('text', s);
+            }
+            // others
+            else {
+                var flashcopier = 'flashcopier';
+                if(!document.getElementById(flashcopier)) {
+                    var divholder = document.createElement('div');
+                    divholder.id = flashcopier;
+                    document.body.appendChild(divholder);
+                }
+                document.getElementById(flashcopier).innerHTML = '';
+                var divinfo = '<embed src="_clipboard.swf" FlashVars="clipboard='+encodeURIComponent(s)+'" width="0" height="0" type="application/x-shockwave-flash"></embed>';
+                document.getElementById(flashcopier).innerHTML = divinfo;
+            }
+        }    
+
     };
 
     if(options.verbose) {
@@ -395,7 +516,24 @@ WiapJSBootstrap = function() {
     });
 
     engine.initDialog();
-
+    
+    $(document).ajaxStart(function(e) {
+        loadingAction();
+    })
+    .ajaxSuccess(function() {
+        //alert("Operation compeled successfully!")
+    })
+    .ajaxError(function(e) {
+        console.log("There was a problem completing your request => ");
+        console.log(e);
+    })
+    .ajaxComplete(function() {
+        //alert("Done!")
+        loadedAction();
+    });
+    $(document).on("nodesAdded", function() {
+        engine.initCheckbox();
+        engine.log("Event: nodesAdded");
+    });
     return engine;
-
 };
