@@ -42,6 +42,9 @@ var opts = {
 var target = document.getElementById('progressHolder');
 var spinner = new Spinner(opts).spin(target); 
 var loadingAction, loadedAction;
+// Failsafe for IE
+if (typeof(console) == "undefined") { console = {}; } 
+if (typeof(console.log) == "undefined") { console.log = function() { return 0; } }    
     
 $(document).ready(function() {
     // AJAX Config
@@ -93,10 +96,14 @@ WiapJSBootstrap = function() {
         namespace: "WIAP_JSINIT", // app namespace - will prefix console outputs
         spreadClass: "spread", // class for spread styling - height of element will be set to height of window
         counterClass: "char-counter", // class for input fields with a maxlength to include a counter
+        counterDisplayClass: "counter-badge",
         dialogWidth: Math.min(500, $(window).width()*0.9),
         toastCSS: {
             maxWidth: $(window).width()*0.9
-        }
+        },
+        emailRegExp: "^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$",
+        emailListRegExp: "^((([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))[,;]?)+$",
+        urlRegExp: "^(http|https|ftp)\:\/\/([a-zA-Z0-9\.\-]+(\:[a-zA-Z0-9\.&amp;%\$\-]+)*@)*((25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9])\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[0-9])|localhost|([a-zA-Z0-9\-]+\.)*[a-zA-Z0-9\-]+\.(com|edu|gov|int|mil|net|org|biz|arpa|info|name|pro|aero|coop|museum|[a-zA-Z]{2}))(\:[0-9]+)*(\/($|[a-zA-Z0-9\.\,\?\'\\\+&amp;%\$#\=~_\-]+))*$"
     };
     if(arguments[0]) {
         options = $.extend(options, arguments[0]);
@@ -203,22 +210,30 @@ WiapJSBootstrap = function() {
                     numid = Math.floor(Math.random()*100000);
                     id = prefix+numid;
                 }
-                else 
+                else {
                     numid= Math.floor(Math.random()*1000000);
+                    id = numid;
+                }
             } while($('#'+id).length>0);
             return id;
         },
         getGMTOffset: function() {
             var now = new Date();
+            /*
+            var h = now.getHours();
+            var utc_h = now.getUTCHours();
+            return h - utc_h;
+            */
             return -1*(now.getTimezoneOffset()/60);
         },
         validateURL: function(textval) {
-            var urlregex = new RegExp(
-            "^(http|https|ftp)\://([a-zA-Z0-9\.\-]+(\:[a-zA-Z0-9\.&amp;%\$\-]+)*@)*((25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9])\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[0-9])|localhost|([a-zA-Z0-9\-]+\.)*[a-zA-Z0-9\-]+\.(com|edu|gov|int|mil|net|org|biz|arpa|info|name|pro|aero|coop|museum|[a-zA-Z]{2}))(\:[0-9]+)*(/($|[a-zA-Z0-9\.\,\?\'\\\+&amp;%\$#\=~_\-]+))*$");
-            return urlregex.test(textval);
+            var re = /((([A-Za-z]{3,9}:(?:\/\/)?)(?:[-;:&=\+\$,\w]+@)?[A-Za-z0-9.-]+|(?:www.|[-;:&=\+\$,\w]+@)[A-Za-z0-9.-]+)((?:\/[\+~%\/.\w-_]*)?\??(?:[-\+=&;%@.\w_]*)#?(?:[\w]*))?)/;
+            //var re = new RegExp(options.urlRegExp);
+            return re.test(textval);
         },
         validateEmail: function(email) { 
-            var re = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+            var re = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+            //var re = new RegExp(options.emailRegExp);
             return re.test(email);
         }, 
         getTimeZeroFill: function(pos, val) {
@@ -264,13 +279,15 @@ WiapJSBootstrap = function() {
             }
             return showtext;
         },
-        isNumericKeyCode: function(keyCode) {
-            if(keyCode >= 48 && keyCode <= 57 
-                    || keyCode >= 96 && keyCode <= 105
-                    || [107, 108, 110, 8, 9, 45, 46, 16, 37, 38, 39, 40].indexOf(keyCode)!==-1) {
+        isNumericKeyCode: function(keyCode, elem) {
+            // engine.log(elem);
+            if((keyCode >= 48 && keyCode <= 57)
+                    || (keyCode >= 96 && keyCode <= 105)
+                    || [107, 108, 110, 8, 9, 45, 46, 16, 37, 38, 39, 40].indexOf(keyCode)!==-1
+                    || (190===keyCode && elem.val().split(".").length<2)) {
                 return true;
             } else {
-                console.log(keyCode);
+                // console.log(keyCode);
                 return false;
             }
         },
@@ -301,9 +318,31 @@ WiapJSBootstrap = function() {
             $('#DialogBtnBar').html("");
             if(buttons) {
                 _.each(buttons, function(button, index) {
-                    if(_.indexOf(["Ok", "Cancel", "Done", "Exit"], button.text)===-1) {
+                    if(!button.important)
+                        button.important = false;
+                    if(!button.class)
+                        button.class = "btn btn-default";
+                    /*
+                    try {
+                        if(!button.important)
+                            button.important = false;
+                    } catch(ex) {
+                        button.important = false;
+                    }
+                    try {
+                        if(!button.class)
+                            button.class = "btn btn-default";
+                    } catch(ex) {
+                        button.class = "btn btn-default";
+                    }
+                    */
+                    button = $.extend({
+                        important: false,
+                        class: "btn btn-primary"
+                    }, button);
+                    if(_.indexOf(["Ok", "Cancel", "Done", "Exit"], button.text)===-1 || button.important) {
                         var btn_id = engine.getDOMId("btn-");
-                        var btn_html = "<button id='" + btn_id + "' class='btn btn-primary'>" + button.text + "</button>";
+                        var btn_html = "<button id='" + btn_id + "' class='" + button.class + "'>" + button.text + "</button>";
                         $('#DialogBtnBar').append(btn_html);
                         $('#'+btn_id).on('click', function() {
                             button.click();
@@ -391,7 +430,7 @@ WiapJSBootstrap = function() {
             toast.id = engine.getDOMId("toast-");
             toast = $(toast);
             toast.addClass("toast");
-            toast.append("<a href='#' class='close-toast'><i class='fa fa-times-circle'></i></a>");
+            toast.append("<a href='#' class='close-toast'><b class='glyphicon glyphicon-remove'></b></a>");
             toast.append(html);
             $('body').append(toast);
             engine.log(toast);
@@ -471,7 +510,60 @@ WiapJSBootstrap = function() {
                 var divinfo = '<embed src="_clipboard.swf" FlashVars="clipboard='+encodeURIComponent(s)+'" width="0" height="0" type="application/x-shockwave-flash"></embed>';
                 document.getElementById(flashcopier).innerHTML = divinfo;
             }
-        }    
+        },
+        alert: function() {
+            var html = arguments[0];
+            var alertClass=  "alert-info";
+            var alertTarget = null;
+            if(arguments.length>1) {
+                alertClass = arguments[1];
+            }
+            if(arguments.length>2) {
+                alertTarget = arguments[2]; 
+            }
+            var alertHtml = "<div class='alert " + alertClass + " fade in'>" 
+                    + "<button type='button' class='close' data-dismiss='alert' aria-hidden='true'>&times;</button>"
+                    + html
+                    + "</div>";
+            if(alertTarget) {
+                alertTarget.html(alertHtml);
+            } else return alertHtml;
+        },
+        option: function(key) {
+            if(options[key]) {
+                return options[key];
+            }
+        },
+        setOptions: function(opts) {
+            if(opts) {
+                options = $.extend(options, opts);
+            }
+        },
+        showErrors: function(data) {
+            try {
+                if(data.errors.length>0) {
+                    $.each(data.errors, function(i, err) {
+                        var elem = $("[name='" + err.field + "']");
+                        var parent = elem.parents('.form-group');
+                        parent.addClass('has-error');
+                        parent.append(err.message);
+                        elem.on('focusin change', function() {
+                            var parent = elem.parents('.form-group');
+                            if(parent.hasClass('has-error')) {
+                                parent.removeClass('has-error');
+                                parent.find('.form-error').remove();
+                            }
+                        });
+                    });
+                }
+            }
+            catch(ex) {
+                engine.log(ex, "No valid error feedback found");
+            }
+            if(data.errors) {
+                
+            }
+        }
 
     };
 
@@ -496,7 +588,7 @@ WiapJSBootstrap = function() {
         var elem_id = engine.getDOMId();
         input.attr('counter-id', elem_id);
         try {
-            input.after("<span id='" + elem_id + "'>" + input.val().length + "</span>");
+            input.after("<div class=\"counter-frame\"><span id='" + elem_id + "' class='" + options.counterDisplayClass + "'>" + input.val().length + "</span></div>");
             input.bind('keyup', function() {
                 var counter = $('#'+$(this).attr('counter-id'));
                 if($(this).attr('maxlength')) {

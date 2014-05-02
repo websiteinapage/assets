@@ -60,10 +60,11 @@ function WiapFxns() {
             }
             return showtext;
         },
-        isNumericKeyCode: function(keyCode) {
-            if(keyCode >= 48 && keyCode <= 57 
-                    || keyCode >= 96 && keyCode <= 105
-                    || [107, 108, 110, 8, 9, 45, 46, 16, 37, 38, 39, 40].indexOf(keyCode)!==-1) {
+        isNumericKeyCode: function(keyCode, elem) {
+            if((keyCode >= 48 && keyCode <= 57)
+                    || (keyCode >= 96 && keyCode <= 105)
+                    || [107, 108, 110, 8, 9, 45, 46, 16, 37, 38, 39, 40].indexOf(keyCode)!==-1
+                    || (190===keyCode && elem.val().indexOf('.')!==-1)) {
                 return true;
             } else {
                 console.log(keyCode);

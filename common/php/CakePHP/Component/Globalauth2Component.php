@@ -58,7 +58,7 @@ class Globalauth2Component extends Component {
         $this->client = new GlobalClient($params);
     }
     
-    public function challenge(\Controller $controller=null) {
+    public function challenge(\Controller $controller=null, $hijack=false, $redirect=null) {
         if(!$this->controller):
             $this->controller = $controller;
         endif;
@@ -472,8 +472,13 @@ class Globalauth2Component extends Component {
                 ), false);
             endif;
         
-            // successful login
-            $this->controller->redirect($this->controller->Auth->loginRedirect);
+            if($hijack && !empty($redirect)):
+                // redirect to landing
+                $this->controller->redirect($redirect);
+            else:
+                // successful login
+                $this->controller->redirect($this->controller->Auth->loginRedirect);
+            endif;
         endif;
     }
     
