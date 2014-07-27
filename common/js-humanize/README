@@ -1,0 +1,23 @@
+JS library useful for adding a “human touch” to data. 
+
+Examples:
+
+intcomma (4500000 = 4,500,000)
+
+intword (1000000 = 1.0 million)
+
+naturalDay (15 April 2012 16:25:30 = Today)
+
+ordinal (3 = 3rd)
+
+filesizeformat (1234567890 = 1.15 Gb)
+
+linebreaks (Play\ning with blank lines = <p>Play<br />ing with blank lines</p>)
+
+linebreaksbr (Play\ning with blank lines = Play<br />ing with blank lines)
+
+pluralize (1, "y", "ies" = y)
+
+truncatechars ("hello world", 10 = "hello w...")
+
+truncatewords ("Playing with truncate words", 3 = Playing with truncate ...)

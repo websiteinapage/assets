@@ -129,8 +129,14 @@ $(function( $ ) {
                 cardtype.css({ opacity: "1" });
             }
             else {
-                infoBox.find(".card-type").show();
-                infoBox.find(".card-type").css({ opacity: "0.3" });
+                var cardtype = infoBox.find(".unknown").first();
+                infoBox.find(".card-type:not(.unknown)").hide();
+                if(!cardtype.is(":visible")) {
+                    cardtype.show();
+                } 
+                cardtype.css({ opacity: "1" });
+                // infoBox.find(".card-type").show();
+                // infoBox.find(".card-type").css({ opacity: "0.3" });
             }
             
         };

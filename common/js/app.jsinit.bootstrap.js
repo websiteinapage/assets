@@ -44,8 +44,38 @@ var spinner = new Spinner(opts).spin(target);
 var loadingAction, loadedAction;
 // Failsafe for IE
 if (typeof(console) == "undefined") { console = {}; } 
-if (typeof(console.log) == "undefined") { console.log = function() { return 0; } }    
-    
+if (typeof(console.log) == "undefined") { console.log = function() { return 0; } };
+// fixes for timezone offset
+Date.prototype.stdTimezoneOffset = function() {
+    var jan = new Date(this.getFullYear(), 0, 1);
+    var jul = new Date(this.getFullYear(), 6, 1);
+    return Math.max(jan.getTimezoneOffset(), jul.getTimezoneOffset());
+};
+Date.prototype.dst = function() {
+    return this.getTimezoneOffset() < this.stdTimezoneOffset();
+};
+loadingAction = function() {
+	if(target) {
+		spinner.spin(target);
+	}
+};
+loadedAction = function() {
+	spinner.stop();
+};
+$(document).ajaxStart(function(e) {
+	loadingAction();
+})
+.ajaxSuccess(function() {
+	//alert("Operation compeled successfully!")
+})
+.ajaxError(function(e) {
+	console.log("There was a problem completing your request => ");
+	console.log(e);
+})
+.ajaxComplete(function() {
+	//alert("Done!")
+	loadedAction();
+});
 $(document).ready(function() {
     // AJAX Config
     var splashFrame = "<div id=\"progressHolder\"></div>";
@@ -269,6 +299,12 @@ WiapJSBootstrap = function() {
                 return timeStr;
             }
         },
+		convertTime: function(dateString) {
+			var now = new Date();
+			var offset=now.getTimezoneOffset()*60*1000;
+			console.log("Time offset (ms)->" + offset);
+			return (new Date(dateString)).getTime()-offset;
+		},
         getTimeDiff: function(date1, date2) {
             return date1.getTime() - date2.getTime();
         },
@@ -278,6 +314,27 @@ WiapJSBootstrap = function() {
                 showtext = showtext + "...";
             }
             return showtext;
+        },
+        suspendBtn: function() {
+            var btn = arguments[0];
+            var workingHTML = "working...";
+            if(arguments.length>1) {
+                workingHTML = arguments[1];
+            }
+            btn.data("lastHTML", btn.html()); 
+            btn.html(workingHTML);
+            btn.addClass("disabled");
+        },
+        restoreBtn: function() {
+            var btn = arguments[0];
+            if(btn.data("lastHTML")) {
+                btn.html(btn.data("lastHTML"));
+            } else if(arguments.length>1) {
+                btn.html(arguments[1]);
+            } else {
+                btn.html("Enter");
+            }
+            btn.removeClass("disabled");
         },
         isNumericKeyCode: function(keyCode, elem) {
             // engine.log(elem);
@@ -337,9 +394,10 @@ WiapJSBootstrap = function() {
                     }
                     */
                     button = $.extend({
-                        important: false,
+                        important: true,
                         class: "btn btn-primary"
                     }, button);
+                    
                     if(_.indexOf(["Ok", "Cancel", "Done", "Exit"], button.text)===-1 || button.important) {
                         var btn_id = engine.getDOMId("btn-");
                         var btn_html = "<button id='" + btn_id + "' class='" + button.class + "'>" + button.text + "</button>";
@@ -411,13 +469,18 @@ WiapJSBootstrap = function() {
               engine.locationInterruptExec();
         },
         showToast: function() {
+            // cancel removal of toast
+            clearTimeout(engine.killToast);
             var html = arguments[0];
             var opts = {
                 css: options.toastCSS,
                 recycle: true,
                 position: null,
                 draggable: false,
-                callback: null
+                callback: null,
+                trivial: false,
+                interval: 1200,
+                timeout: 4800
             };
             if(arguments[1]) {
                 opts = $.extend(opts, arguments[1]);
@@ -426,19 +489,31 @@ WiapJSBootstrap = function() {
                 $('.toast').remove();
             }
             engine.log(html, "Show toast message:");
+            var toastFrame = document.createElement('div');
+            toastFrame.id = engine.getDOMId("toastframe-");
+            toastFrame = $(toastFrame);
+            toastFrame.addClass('toast-frame');
+            toastFrame.addClass('wiap-ui-engine-toast');
             var toast = document.createElement('div');
-            toast.id = engine.getDOMId("toast-");
+            newid = engine.getDOMId("toast-");
+            toast.id = newid;
             toast = $(toast);
             toast.addClass("toast");
-            toast.append("<a href='#' class='close-toast'><b class='glyphicon glyphicon-remove'></b></a>");
+            if(opts.has_error) {
+                toast.addClass("error");
+            }
+            toast.append("<a href='#' class='close-toast'><b class='fa fa-times'></b></a>");
             toast.append(html);
-            $('body').append(toast);
+            toastFrame.append(toast);
+            $('body').append(toastFrame);
             engine.log(toast);
+            // find instance of toast appended to body
+            toast = $('#'+newid);
             toast.find('.close-toast').bind('click', function(e) {
                 e.preventDefault();
                 // var toast = $(this);
                 toast.fadeOut(250, function() {
-                    toast.remove();
+                    toastFrame.remove();
                 });
             });
             if(opts.position) {
@@ -461,6 +536,42 @@ WiapJSBootstrap = function() {
             if(opts.draggable) {
                 toast.draggable();
             }
+            if(opts.trivial) {
+                toast.append("<div style='text-align:center;font-size:0.75em;'>This notice will clear in <span id='toast-counter'>"+parseInt(opts.timeout/opts.interval)+"</span>...</div>");
+                var timekeep=0;
+                engine.killToastCheck = setInterval(function() {
+                    timekeep += opts.interval;
+                    if(timekeep>=opts.timeout) {
+                        clearInterval(engine.killToastCheck);
+                        engine.clearToast();
+                        if(engine.isFxn(opts.callback)) {
+                            opts.callback();
+                        }
+                    } else {
+                        counter = toast.find("#toast-counter");
+                        if(!counter.is(":visible")) {
+                            counter.css({
+                                opacity: 1,
+                                filter: "alpha(opacity=100)"
+                            });
+                        }
+                        counter.html(parseInt((opts.timeout-timekeep)/opts.interval));
+                    }
+                }, opts.interval);
+            }
+        },
+        closeToast: function(toast) {
+            clearInterval(engine.killToastCheck);
+            toast.fadeOut(250, function() {
+                toast.remove();
+                toast.parents('.toast-frame').remove();
+            });
+        },
+        clearToast: function() {
+            clearInterval(engine.killToastCheck);
+            $('.toast').fadeOut(250, function() {
+                $('.toast-frame').remove();
+            });
         },
         showFileProgress: function() {
             var html = arguments[0];
@@ -473,8 +584,12 @@ WiapJSBootstrap = function() {
             if(opts.totalsize) {
                 engine.log(opts.totalsize, "Total Data size (B)");
                 var id = engine.getDOMId('progress-');
-                engine.showDialog(html + "<br /><div class='progress'><div id='" + id + "' class='progress-bar progress progress-bar-success progress-striped active' aria-valuenow='1' " + 
-                        " aria-valuemax='" + opts.totalzie +  "' aria-valuemin='0' style='width: " + (1/opts.totalsize) + "%'></div></div>", btns);
+				var pct = 1/opts.totalsize;
+				var dialogHTML = html + "<br /><div class='progress'><div id='" 
+				+ id + "' class='progress-bar progress progress-bar-success progress-striped active' aria-valuenow='1' aria-valuemax='" 
+				+ opts.totalzie +  "' aria-valuemin='0' style='width: " + pct + "%'></div></div>";
+				
+                engine.showDialog(dialogHTML, btns);
                 var bar = $('#'+id);
                 // bar.progressbar(opts.progressbar_options);
                 // do interval checking of progress bar options
@@ -482,17 +597,18 @@ WiapJSBootstrap = function() {
             } else {
                 engine.log(null, "Invalid options passed: {files} options required with a {filesize} attribute for each file");
             }
-        },
+        }/*,
         closeToast: function(toast) {
             toast.fadeOut(250, function() {
                 toast.remove();
+                toast.parents('.toast-frame').remove();
             });
         },
         clearToast: function() {
             $('.toast').fadeOut(250, function() {
-                $('.toast').remove();
+                $('.toast-frame').remove();
             });
-        },
+        }*/,
         copyToClipboard: function(s) {
             // ie
             if (window.clipboardData && clipboardData.setData) {
@@ -541,13 +657,15 @@ WiapJSBootstrap = function() {
         },
         showErrors: function(data) {
             try {
+                // clear prior reported errors
+                $(".form-error,.error").remove();
                 if(data.errors.length>0) {
                     $.each(data.errors, function(i, err) {
                         var elem = $("[name='" + err.field + "']");
                         var parent = elem.parents('.form-group');
                         parent.addClass('has-error');
                         parent.append(err.message);
-                        elem.on('focusin change', function() {
+                        elem.on('focusin keyup change', function() {
                             var parent = elem.parents('.form-group');
                             if(parent.hasClass('has-error')) {
                                 parent.removeClass('has-error');
@@ -563,8 +681,10 @@ WiapJSBootstrap = function() {
             if(data.errors) {
                 
             }
+        },
+        serialize: function(obj) {
+            return $.param(obj);
         }
-
     };
 
     if(options.verbose) {

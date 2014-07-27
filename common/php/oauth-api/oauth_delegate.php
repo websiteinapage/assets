@@ -1,6 +1,6 @@
 <?php
 /*
- * oauth_client.php
+ * oauth_client_cake.php
  *
  * @(#) $Id: oauth_client.php,v 1.74 2013/10/17 04:45:34 mlemos Exp $
  *
@@ -13,7 +13,7 @@
 	<package>net.manuellemos.oauth</package>
 
 	<version>@(#) $Id: oauth_client.php,v 1.74 2013/10/17 04:45:34 mlemos Exp $</version>
-	<copyright>Copyright © (C) Manuel Lemos 2012</copyright>
+	<copyright>Copyright ï¿½ (C) Manuel Lemos 2012</copyright>
 	<title>OAuth client</title>
 	<author>Manuel Lemos</author>
 	<authoraddress>mlemos-at-acm.org</authoraddress>
@@ -97,7 +97,7 @@
 {/metadocument}
 */
 
-class oauth_client_class
+class Oauth_delegate
 {
 /*
 {metadocument}
@@ -797,6 +797,12 @@ class oauth_client_class
 
 	var $oauth_user_agent = 'PHP-OAuth-API (http://www.phpclasses.org/oauth-api $Revision: 1.74 $)';
 	var $session_started = false;
+        
+        private $controller;
+        
+        public function __construct(Controller $controller) {
+            $this->controller = $controller;
+        }
 
 	Function SetError($error)
 	{
@@ -932,8 +938,17 @@ class oauth_client_class
 */
 	Function Redirect($url)
 	{
-		Header('HTTP/1.0 302 OAuth Redirection');
-		Header('Location: '.$url);
+            
+            if(empty($this->controller)):
+                throw new Exception('Controller must be set for URL redirection.');
+            else:/*
+                $this->controller->request->header(array(
+                    'HTTP/1.0 302 OAuth Redirection'                
+                ));*/
+                $this->controller->redirect($url);
+            endif;
+            //Header('HTTP/1.0 302 OAuth Redirection');
+            //Header('Location: '.$url);
 	}
 /*
 {metadocument}
@@ -1042,6 +1057,8 @@ class oauth_client_class
 */
 	Function GetAccessToken(&$access_token)
 	{
+            $this->session_started = true;
+            /*
 		if(!$this->session_started)
 		{
 			if(!function_exists('session_start'))
@@ -1050,6 +1067,7 @@ class oauth_client_class
 				return($this->SetPHPError('it was not possible to start the PHP session', $php_error_message));
 			$this->session_started = true;
 		}
+             */
 		if(!$this->GetAccessTokenURL($access_token_url))
 			return false;
 		if(IsSet($_SESSION['OAUTH_ACCESS_TOKEN'][$access_token_url]))
