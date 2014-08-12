@@ -108,9 +108,10 @@ jQuery.support.placeholder = (function(){
     return 'placeholder' in i;
 })();
 
+// @TODO updated 2014-08-12 05:13 AM
 WiapJSBootstrap = function() {
-    if($('body').find('#DialogFrame').length<1) {
-        var dlg = "<div id='DialogFrame' class='modal fade' tagindex='-1' role='dialog' aria-labelledby='myModalLabel' aria-hidden='true'>" + 
+    /*
+    var dialogHTML = "<div id='DialogFrame' class='modal fade' tagindex='-1' role='dialog' aria-labelledby='myModalLabel'>" + 
             "<div class='modal-dialog'>" + 
                 "<div class='modal-content'>" + 
                     "<div class='modal-header'><button type='button' class='close' data-dismiss='modal' aria-hidden='true'>&times;</button>" +
@@ -119,8 +120,20 @@ WiapJSBootstrap = function() {
             "<div id='DialogContent' class='modal-body'></div>" + 
             "<div class='modal-footer button-bar' id='DialogBtnBar'></div>" + 
         "</div></div></div>";
-        $('body').append(dlg);
+    */
+    var dialogHTML = "<div class='modal-dialog'>" + 
+                "<div class='modal-content'>" + 
+                    "<div class='modal-header'><button type='button' class='close' data-dismiss='modal' aria-hidden='true'>&times;</button>" +
+                        "<h4 class='modal-title' id='DialogTitle'></h4>" +
+                    "</div>" +
+            "<div id='DialogContent' class='modal-body'></div>" + 
+            "<div class='modal-footer button-bar' id='DialogBtnBar'></div>" + 
+        "</div></div>";
+    /*
+    if($('body').find('#DialogFrame').length<1) {
+        $('body').append(dialogHTML);
     }
+    */
     var options = {
         verbose: true, // option for outputting runtime activity - true = show feedback in console log
         namespace: "WIAP_JSINIT", // app namespace - will prefix console outputs
@@ -140,6 +153,7 @@ WiapJSBootstrap = function() {
     }  
     
     var engine = {
+        dialogHTML: dialogHTML,
         closeDialogCallback: function() {},
         initCheckbox: function() {
             $('.checkbox').each(function() {
@@ -196,7 +210,7 @@ WiapJSBootstrap = function() {
 
         },
         initDialog: function() {
-            var frame = $('body').find('#DialogFrame');
+            // var frame = $('body').find('#DialogFrame');
             // console.log(frame);
             /*
             frame.dialog({
@@ -220,10 +234,12 @@ WiapJSBootstrap = function() {
                 }
             });
             */
+           /*
             frame.modal({
                 keyboard: false,
                 show: false
             });
+            */
         },
         hexToRgb: function(hex) {
         var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -299,12 +315,12 @@ WiapJSBootstrap = function() {
                 return timeStr;
             }
         },
-		convertTime: function(dateString) {
-			var now = new Date();
-			var offset=now.getTimezoneOffset()*60*1000;
-			console.log("Time offset (ms)->" + offset);
-			return (new Date(dateString)).getTime()-offset;
-		},
+        convertTime: function(dateString) {
+            var now = new Date();
+            var offset=now.getTimezoneOffset()*60*1000;
+            console.log("Time offset (ms)->" + offset);
+            return (new Date(dateString)).getTime()-offset;
+        },
         getTimeDiff: function(date1, date2) {
             return date1.getTime() - date2.getTime();
         },
@@ -350,9 +366,30 @@ WiapJSBootstrap = function() {
         },
         showDialog: function() {
             // html, buttons, title, options
+            
+            /** @UPDATE 
+             * Added handling of btnCallback and readyCallback methods
+             * 
+             * Added advanced CSS pass-through to dialog as opts.css parameter
+             * 
+             * Fixed css issues with alert frames covering the entire page
+             */
+            var dialogID = engine.getDOMId("dialog_frame_");
+            var dialogDOM = document.createElement("div");
+            dialogDOM.id = dialogID;
+            dialogDOM.className = "modal fade";
+            dialogDOM.innerHTML = engine.dialogHTML;
+            $("body").find(".dialog-frame").remove();
+            $("body").append(dialogDOM);
+            var dialogObj = $("#"+dialogID);
+            
             var html = arguments[0];
             var buttons, title = null;
-            var opts = {};
+            var opts = {
+                btnCallback: false,
+                readyCallback: false,
+                css: null
+            };
             if(arguments[1]) {
                 buttons = arguments[1];
             }
@@ -362,17 +399,45 @@ WiapJSBootstrap = function() {
             if(arguments[3]) {
                 opts = $.extend(opts, arguments[3]);
             }
+            /*
+            $('#DialogFrame').modal({
+                show: false
+            });
+            */
             if(opts.dialogWidth) {
-                $('#DialogFrame').dialog("option", "width", opts.dialogWidth);
+                // $('#DialogFrame').dialog("option", "width", opts.dialogWidth);
+                $('#DialogFrame2').find(".modal-dialog").css({
+                    width: opts.dialogWidth
+                });
             }
-            $('#DialogFrame').modal('show');
+            if(opts.css) {
+                $("#DialogFrame2").find(".modal-dialog").css(opts.css);
+            }
+            
+            dialogObj.modal({
+                autoOpen: true,
+                keyboard: false,
+                show: "fade",
+                hide: "fade"
+            })
+            .on('shown.bs.modal', function() {
+                if(opts.readyCallback && engine.isFxn(opts.readyCallback)) {
+                    engine.log(opts.readyCallback, "Found readyCallback()!");
+                    opts.readyCallback();
+                }
+            })
+            .on('hidden.bs.modal', function() {
+                dialogObj.remove();
+            });
+            
+            //$("#DialogFrame").modal('show');
             if(title)
-                $('#DialogTitle').html(title);
+                dialogObj.find('#DialogTitle').html(title);
             else
-                $('#DialogTitle').html("&nbsp;");
+                dialogObj.find('#DialogTitle').html("&nbsp;");
                 
-            $('#DialogContent').html(html);
-            $('#DialogBtnBar').html("");
+            dialogObj.find('#DialogContent').html(html);
+            dialogObj.find('#DialogBtnBar').html("");
             if(buttons) {
                 _.each(buttons, function(button, index) {
                     if(!button.important)
@@ -401,16 +466,22 @@ WiapJSBootstrap = function() {
                     if(_.indexOf(["Ok", "Cancel", "Done", "Exit"], button.text)===-1 || button.important) {
                         var btn_id = engine.getDOMId("btn-");
                         var btn_html = "<button id='" + btn_id + "' class='" + button.class + "'>" + button.text + "</button>";
-                        $('#DialogBtnBar').append(btn_html);
+                        dialogObj.find('#DialogBtnBar').append(btn_html);
                         $('#'+btn_id).on('click', function() {
                             button.click();
+                            // run dialog callback
+                            if(opts.btnCallback && engine.isFxn(opts.btnCallback)) {
+                                opts.btnCallback();
+                            }
                         });
                     }
                 });
             }
+            engine.currentDialog = dialogObj;
         },
         getDialogDOM: function() {
-            return $('#DialogFrame');
+            return engine.currentDialog;
+            // return $('#DialogFrame');
         }, 
         log: function(obj, msg) {
             if(options.verbose) {
@@ -423,7 +494,8 @@ WiapJSBootstrap = function() {
         },
         closeDialog: function() {
             //$('#DialogFrame').dialog("close");
-            $('#DialogFrame').modal('hide');
+            //$('#DialogFrame').modal('hide');
+            engine.currentDialog.modal('hide');
             if(engine.isFxn(engine.closeDialogCallback)) {
                 engine.closeDialogCallback();
             }
@@ -513,7 +585,8 @@ WiapJSBootstrap = function() {
                 e.preventDefault();
                 // var toast = $(this);
                 toast.fadeOut(250, function() {
-                    toastFrame.remove();
+                    // toastFrame.remove();
+                    engine.clearToast();
                 });
             });
             if(opts.position) {
@@ -523,6 +596,7 @@ WiapJSBootstrap = function() {
                     engine.log(null, "Invalid position option for toast.");
                 }
             }
+            /**
             if(opts.callback) {
                 try {
                     if(engine.isFxn(opts.callback)) opts.callback();
@@ -530,6 +604,7 @@ WiapJSBootstrap = function() {
                     engine.log(null, "Failed to run callback of toast.");
                 }
             }
+            */
             if(opts.css) {
                 toast.css(opts.css);
             }
@@ -558,13 +633,21 @@ WiapJSBootstrap = function() {
                         counter.html(parseInt((opts.timeout-timekeep)/opts.interval));
                     }
                 }, opts.interval);
+            } else {
+                if(opts.callback) {
+                    try {
+                        if(engine.isFxn(opts.callback)) opts.callback();
+                    } catch(ex) {
+                        engine.log(null, "Failed to run callback of toast.");
+                    }
+                }
             }
         },
         closeToast: function(toast) {
             clearInterval(engine.killToastCheck);
             toast.fadeOut(250, function() {
-                toast.remove();
                 toast.parents('.toast-frame').remove();
+                //toast.remove();
             });
         },
         clearToast: function() {
@@ -684,6 +767,133 @@ WiapJSBootstrap = function() {
         },
         serialize: function(obj) {
             return $.param(obj);
+        },
+        getJSONFromNativeIframe: function(iframe_id) {
+            return JSON.parse($("#"+iframe_id)[0].contentDocument.body.innerText);
+        },
+        iframeFormSubmit: function() {
+            /** @NEW **/
+            var form, success_callback, error_callback, complete_callback;
+            form = document.querySelector(arguments[0]);
+            success_callback = arguments.length>1 ? arguments[1] : false;
+            error_callback = arguments.length>2 ? arguments[2] : false;
+            complete_callback = arguments.length>3 ? arguments[3] : false;
+            var frameId = engine.getDOMId("frame-");
+            engine.log(frameId, "Frame ID ->");
+            var frame = document.createElement("iframe");
+            frame.id = frameId;
+            frame.name = frameId;
+            frame.style.display = "none";
+            frame.style.border = 0;
+            document.querySelector("body").appendChild(frame);
+            form.target = frameId;
+            engine.log(frameId, "Frame name->");
+            // frame = $(frame);
+            frame = document.querySelector("#"+frameId);
+            frame.onload = function() {
+                engine.log(true, "iframe submit load complete");
+                try {
+                    var json = JSON.parse(frame.contentDocument.body.innerText);  
+                    engine.log(frame, "Results->");
+                    if(engine.isFxn(success_callback)) {
+                        engine.log(true, "Found success callback->");
+                        success_callback(json, frame.contentDocument.body.innerText, frame.contentDocument.body.innerHTML);
+                    }
+                } catch(ex) {
+                    engine.log(ex, "An error occurred->");
+                    engine.log(frame.contentDocument.body.innerText, "Frame contents->");
+                    if(engine.isFxn(error_callback)) {
+                        error_callback();
+                    }
+                }
+                if(engine.isFxn(complete_callback)) {
+                    complete_callback();
+                }
+            };
+        },
+        newWindow: function() {
+            var w = $(window).width();
+            var minW = 450;
+            var dialogH = 600;
+            var dialogW = Math.min.apply(null, [minW, w]);
+            var margins = w-dialogW;
+            var margin = margins>20 ? (margins/2) : 10;
+            var opts = {
+                url: null,
+                width: dialogW,
+                height: dialogH,
+                marginTop: 100,
+                marginLeft: margin,
+                windowTitle: "New Window"
+            };
+            opts = arguments.length > 0 ? $.extend(opts, arguments[0]) : opts;
+            if(!opts.url) {
+                engine.showToast("Dev: You must provide a URL",{has_error:true,trivial:false});
+            }
+            var params = ["toolbar=no","location=no","menubar=no","resizable=yes","width="+opts.width+"px","height="+opts.height+"px","top="+opts.marginTop,"left="+opts.marginLeft];
+            return window.open(opts.url, opts.windowTitle, params.join(","));
+        },
+        // UNDERSCORE.JS is required to use this method!
+        loadTemplates: function(options) {
+            if(!_) {
+                engine.log("Underscore.js library does not exist! Aborting...");
+                return false;
+            }
+            var options = $.extend({
+                source: null, // the source javascript object to load compiled templates to
+                dest: {}, // the destination javascript object to load compiled templates to
+                callback: false,
+                target: document.querySelector("body"), // this should be the 'spinner' target where the busy graphic will show
+                retryLimit: 10
+            }, options);
+            target = options.target;
+            spinner.spin(target);
+            var attempts = 0;
+            // start waiting for templates to load
+            var waitingForTemplates = setInterval(function() {
+                attempts += 1;
+                var passed = true;
+                _.each(options.source, function(template) {
+                   if(!template.loaded) {
+                       engine.log("Templates not ready (" + attempts + ")...");
+                       if(attempts >= options.retryLimit) {
+                           engine.showToast("There was a problem loading this page. Contact your administrator. Error: template load failure.",{trivial:false, has_error:true});
+                           clearInterval(waitingForTemplates);
+                           spinner.stop(target);
+                       }
+                       passed = false;
+                   }
+                });
+                // if all templates are available
+                if(passed) {
+                    clearInterval(waitingForTemplates);
+                    if(engine.isFxn(options.callback)) {
+                        // call callback method and pass it the compiled templates
+                        options.callback(options.dest);
+                    }
+                }
+            }, 500);
+            // start loading templates
+            _.each(options.source, function(template, key) {
+                $.ajax({
+                    url: template.url,
+                    async: true,
+                    cache: false,
+                    success: function(html) {
+                        engine.log(template.url, "Compiling template->");
+                        // compile user editor
+                        options.dest[template.key] = _.template(html);
+                        options.source[key].loaded = true;
+                        engine.log(options.source, "Template status->");
+                    },
+                    error: function(xhr, status, err) {
+                        engine.log(xhr, "Err->");
+                        options.source[key].loaded = false;
+                        $(options.source[key].parents).hide();
+                    }
+                });
+            });
+            
         }
     };
 
