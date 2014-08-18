@@ -177,18 +177,24 @@ WiapJSBootstrap = function() {
             opts.success = function(data, status, xhr) {
                 var arg = arguments;
                 engine.log(data, "Data returned->");
+                try {
+                    if(!data && xhr.responseText) {
+                        xhr.responseJSON = JSON.parse(xhr.responseText);
+                        arg[2] = xhr;
+                    }
+                } catch(ex) {}
                 if(engine.isFxn(thenSuccess)) {
                     thenSuccess.apply(null, arg);
                 };
             };
             opts.error = function(xhr, status, err) {
                 var arg = arguments;
-                if(!xhr.responseJSON && xhr.responseText) {
-                    try {
+                try {
+                    if(!xhr.responseJSON && xhr.responseText) {
                         xhr.responseJSON = JSON.parse(xhr.responseText);
                         arg[0] = xhr;
-                    } catch(ex) {}
-                }
+                    }
+                } catch(ex) {}
                 engine.log(xhr, "Error information returned->");
                 if(engine.isFxn(thenErr)) {
                     thenErr.apply(null, arg);
