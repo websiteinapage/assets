@@ -121,14 +121,13 @@ WiapJSBootstrap = function() {
             "<div class='modal-footer button-bar' id='DialogBtnBar'></div>" + 
         "</div></div></div>";
     */
-    var dialogHTML = "<div class='modal-dialog'>" + 
-                "<div class='modal-content'>" + 
+    var dialogHTML = "<div class='modal-content'>" + 
                     "<div class='modal-header'><button type='button' class='close' data-dismiss='modal' aria-hidden='true'>&times;</button>" +
                         "<h4 class='modal-title' id='DialogTitle'></h4>" +
                     "</div>" +
             "<div id='DialogContent' class='modal-body'></div>" + 
             "<div class='modal-footer button-bar' id='DialogBtnBar'></div>" + 
-        "</div></div>";
+        "</div>";
     /*
     if($('body').find('#DialogFrame').length<1) {
         $('body').append(dialogHTML);
@@ -155,6 +154,55 @@ WiapJSBootstrap = function() {
     var engine = {
         dialogHTML: dialogHTML,
         closeDialogCallback: function() {},
+        ajaxSubmit: function() {
+            var opts = $.extend({
+                url: null,
+                type: "GET",
+                dataType: "jsonp",
+                cache: false,
+                async: true,
+                contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+                data: {},
+                success: false,
+                error: false,
+                complete: false,
+                beforeSend: function() {
+                    engine.log(opts.data, "Sending " + opts.type + " request to " + opts.url + "->");
+                }
+            }, arguments[0]);
+            // expand complete function
+            var thenComplete = opts.complete;
+            var thenSuccess = opts.success;
+            var thenErr = opts.error;
+            opts.success = function(data, status, xhr) {
+                var arg = arguments;
+                engine.log(data, "Data returned->");
+                if(engine.isFxn(thenSuccess)) {
+                    thenSuccess.apply(null, arg);
+                };
+            };
+            opts.error = function(xhr, status, err) {
+                var arg = arguments;
+                if(!xhr.responseJSON && xhr.responseText) {
+                    try {
+                        xhr.responseJSON = JSON.parse(xhr.responseText);
+                        arg[0] = xhr;
+                    } catch(ex) {}
+                }
+                engine.log(xhr, "Error information returned->");
+                if(engine.isFxn(thenErr)) {
+                    thenErr.apply(null, arg);
+                };
+            };
+            opts.complete = function() {
+                var arg = arguments;
+                if(engine.isFxn(thenComplete)) {
+                    thenComplete.apply(null, arg);
+                }
+                engine.log(arg, "Completed request via ajaxSubmit=>");
+            };
+            $.ajax(opts);
+        },
         initCheckbox: function() {
             $('.checkbox').each(function() {
                 var elem = $(this);
@@ -366,7 +414,6 @@ WiapJSBootstrap = function() {
         },
         showDialog: function() {
             // html, buttons, title, options
-            
             /** @UPDATE 
              * Added handling of btnCallback and readyCallback methods
              * 
@@ -374,22 +421,18 @@ WiapJSBootstrap = function() {
              * 
              * Fixed css issues with alert frames covering the entire page
              */
-            var dialogID = engine.getDOMId("dialog_frame_");
-            var dialogDOM = document.createElement("div");
-            dialogDOM.id = dialogID;
-            dialogDOM.className = "modal fade";
-            dialogDOM.innerHTML = engine.dialogHTML;
-            $("body").find(".dialog-frame").remove();
-            $("body").append(dialogDOM);
-            var dialogObj = $("#"+dialogID);
+            //var dialogID = engine.getDOMId("dialog_frame_");
+            $("#DialogFrame").remove();
             
             var html = arguments[0];
             var buttons, title = null;
             var opts = {
                 btnCallback: false,
                 readyCallback: false,
-                css: null
+                css: null,
+                bootstrapClass: "modal-dialog modal-lg"
             };
+            
             if(arguments[1]) {
                 buttons = arguments[1];
             }
@@ -399,6 +442,19 @@ WiapJSBootstrap = function() {
             if(arguments[3]) {
                 opts = $.extend(opts, arguments[3]);
             }
+            
+            var dialogID = "DialogFrame";
+            var dialogDOM = document.createElement("div");
+            dialogDOM.id = dialogID;
+            dialogDOM.className = "modal fade";
+            var innerDialog = document.createElement("div");
+            innerDialog.className = opts.bootstrapClass;
+            innerDialog.innerHTML = engine.dialogHTML;
+            dialogDOM.appendChild(innerDialog);
+            $("body").find(".dialog-frame").remove();
+            $("body").append(dialogDOM);
+            var dialogObj = $("#"+dialogID);
+            
             /*
             $('#DialogFrame').modal({
                 show: false
@@ -406,12 +462,12 @@ WiapJSBootstrap = function() {
             */
             if(opts.dialogWidth) {
                 // $('#DialogFrame').dialog("option", "width", opts.dialogWidth);
-                $('#DialogFrame2').find(".modal-dialog").css({
+                $('#DialogFrame').find(".modal-dialog").css({
                     width: opts.dialogWidth
                 });
             }
             if(opts.css) {
-                $("#DialogFrame2").find(".modal-dialog").css(opts.css);
+                $("#DialogFrame").find(".modal-dialog").css(opts.css);
             }
             
             dialogObj.modal({
@@ -421,6 +477,57 @@ WiapJSBootstrap = function() {
                 hide: "fade"
             })
             .on('shown.bs.modal', function() {
+                if(title)
+                    dialogObj.find('#DialogTitle').html(title);
+                else
+                    dialogObj.find('#DialogTitle').html("&nbsp;");
+
+                dialogObj.find('#DialogContent').html(html);
+                var btnBar = dialogObj.find("#DialogBtnBar");
+                btnBar.html("");
+                engine.log(buttons, "Buttons found->");
+                if(buttons) {
+                    _.each(buttons, function(button, index) {
+                        if(!button.important) {
+                            button.important = false;
+                        }
+                        if(!button.class) {
+                            button.class = "btn btn-default";
+                        }
+                        /*
+                        try {
+                            if(!button.important)
+                                button.important = false;
+                        } catch(ex) {
+                            button.important = false;
+                        }
+                        try {
+                            if(!button.class)
+                                button.class = "btn btn-default";
+                        } catch(ex) {
+                            button.class = "btn btn-default";
+                        }
+                        */
+                        button = $.extend({
+                            important: true,
+                            class: "btn btn-primary"
+                        }, button);
+
+                        if(_.indexOf(["Ok", "Cancel", "Done", "Exit"], button.text)===-1 || button.important) {
+                            var btn_id = engine.getDOMId("btn-");
+                            var btn_html = "<button id='" + btn_id + "' class='" + button.class + "'>" + button.text + "</button>";
+                            btnBar.append(btn_html);
+                            $('#'+btn_id).on('click', function() {
+                                button.click();
+                                // run dialog callback
+                                if(opts.btnCallback && engine.isFxn(opts.btnCallback)) {
+                                    opts.btnCallback();
+                                }
+                            });
+                        }
+                    });
+                }
+                // hit callback if passed
                 if(opts.readyCallback && engine.isFxn(opts.readyCallback)) {
                     engine.log(opts.readyCallback, "Found readyCallback()!");
                     opts.readyCallback();
@@ -429,54 +536,6 @@ WiapJSBootstrap = function() {
             .on('hidden.bs.modal', function() {
                 dialogObj.remove();
             });
-            
-            //$("#DialogFrame").modal('show');
-            if(title)
-                dialogObj.find('#DialogTitle').html(title);
-            else
-                dialogObj.find('#DialogTitle').html("&nbsp;");
-                
-            dialogObj.find('#DialogContent').html(html);
-            dialogObj.find('#DialogBtnBar').html("");
-            if(buttons) {
-                _.each(buttons, function(button, index) {
-                    if(!button.important)
-                        button.important = false;
-                    if(!button.class)
-                        button.class = "btn btn-default";
-                    /*
-                    try {
-                        if(!button.important)
-                            button.important = false;
-                    } catch(ex) {
-                        button.important = false;
-                    }
-                    try {
-                        if(!button.class)
-                            button.class = "btn btn-default";
-                    } catch(ex) {
-                        button.class = "btn btn-default";
-                    }
-                    */
-                    button = $.extend({
-                        important: true,
-                        class: "btn btn-primary"
-                    }, button);
-                    
-                    if(_.indexOf(["Ok", "Cancel", "Done", "Exit"], button.text)===-1 || button.important) {
-                        var btn_id = engine.getDOMId("btn-");
-                        var btn_html = "<button id='" + btn_id + "' class='" + button.class + "'>" + button.text + "</button>";
-                        dialogObj.find('#DialogBtnBar').append(btn_html);
-                        $('#'+btn_id).on('click', function() {
-                            button.click();
-                            // run dialog callback
-                            if(opts.btnCallback && engine.isFxn(opts.btnCallback)) {
-                                opts.btnCallback();
-                            }
-                        });
-                    }
-                });
-            }
             engine.currentDialog = dialogObj;
         },
         getDialogDOM: function() {
@@ -894,6 +953,38 @@ WiapJSBootstrap = function() {
                 });
             });
             
+        },
+        enforceMaxLength: function(elemIDEN) {
+            $(elemIDEN).each(function(key, elem) {
+                // var input = $(this);
+                var input = $(elem);
+                if(!input.attr("maxlength")) {
+                    engine.log(input, "The element at index ("+key+") of [" + elemIDEN + "] was ignored for enforcing maxlength because the maxlength attribute was not set =>");
+                } else {
+                    var elem_id = engine.getDOMId();
+                    input.attr('counter-id', elem_id);
+                    try {
+                        // input.after("<div class=\"counter-frame\"><span id='" + elem_id + "' class='" + options.counterDisplayClass + "'>" + input.val().length + "</span></div>");
+                        input.after("<div class=\"counter-frame\"><span id='" + elem_id + "' class='" + options.counterDisplayClass + "'>" + input.attr("maxlength") + "</span></div>");
+                        input.bind('keyup', function() {
+                            var maxlen=$(this).attr("maxlength");
+                            var counter = $('#'+$(this).attr('counter-id'));
+                            if($(this).attr('maxlength')) {
+                                if(maxlen-$(this).val().length<10) {
+                                    counter.css({
+                                        color: "#ff3300"
+                                    });
+                                } else {
+                                    counter.css({
+                                        color: "inherit"
+                                    });
+                                }
+                            }
+                            counter.html(maxlen-$(this).val().length);
+                        });
+                    } catch(ex) {}
+                }
+            });
         }
     };
 
@@ -912,17 +1003,19 @@ WiapJSBootstrap = function() {
             });
         });
     }
-
+    /*
     $('.'+options.counterClass).each(function() {
         var input = $(this);
         var elem_id = engine.getDOMId();
         input.attr('counter-id', elem_id);
         try {
-            input.after("<div class=\"counter-frame\"><span id='" + elem_id + "' class='" + options.counterDisplayClass + "'>" + input.val().length + "</span></div>");
+            // input.after("<div class=\"counter-frame\"><span id='" + elem_id + "' class='" + options.counterDisplayClass + "'>" + input.val().length + "</span></div>");
+            input.after("<div class=\"counter-frame\"><span id='" + elem_id + "' class='" + options.counterDisplayClass + "'>" + input.attr("maxlength") + "</span></div>");
             input.bind('keyup', function() {
+                var maxlen=$(this).attr("maxlength");
                 var counter = $('#'+$(this).attr('counter-id'));
                 if($(this).attr('maxlength')) {
-                    if($(this).attr('maxlength')-$(this).val().length<10) {
+                    if(maxlen-$(this).val().length<10) {
                         counter.css({
                             color: "#ff3300"
                         });
@@ -932,10 +1025,12 @@ WiapJSBootstrap = function() {
                         });
                     }
                 }
-                counter.html($(this).val().length);
+                counter.html(maxlen-$(this).val().length);
             });
         } catch(ex) {}
     });
+    */
+    engine.enforceMaxLength('.'+options.counterClass);
 
     engine.initDialog();
     
