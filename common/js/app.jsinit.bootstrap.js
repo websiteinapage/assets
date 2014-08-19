@@ -158,7 +158,7 @@ WiapJSBootstrap = function() {
             var opts = $.extend({
                 url: null,
                 type: "GET",
-                dataType: "jsonp",
+                dataType: "json",
                 cache: false,
                 async: true,
                 contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
@@ -626,10 +626,17 @@ WiapJSBootstrap = function() {
                 $('.toast').remove();
             }
             engine.log(html, "Show toast message:");
-            var toastFrame = document.createElement('div');
-            toastFrame.id = engine.getDOMId("toastframe-");
-            toastFrame = $(toastFrame);
-            toastFrame.addClass('toast-frame');
+            // check for existing toast frame
+            // engine.log($(".toast-frame"), "Toast frames->");
+            if($(".toast-frame").length>0) {
+                var toastFrame = $(".toast-frame").first();
+                engine.log(toastFrame, "Found toastframe->");
+            } else {
+                var toastFrame = document.createElement('div');
+                toastFrame.id = engine.getDOMId("toastframe-");
+                toastFrame = $(toastFrame);
+                toastFrame.addClass('toast-frame');
+            }
             toastFrame.addClass('wiap-ui-engine-toast');
             var toast = document.createElement('div');
             newid = engine.getDOMId("toast-");
@@ -711,7 +718,11 @@ WiapJSBootstrap = function() {
         closeToast: function(toast) {
             clearInterval(engine.killToastCheck);
             toast.fadeOut(250, function() {
-                toast.parents('.toast-frame').remove();
+                var parent = toast.parents(".toast-frame");
+                if(parent.find(".toast").length == 0) {
+                    parent.remove();
+                }
+                // toast.parents('.toast-frame').remove();
                 //toast.remove();
             });
         },
